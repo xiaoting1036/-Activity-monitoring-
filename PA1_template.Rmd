@@ -1,0 +1,124 @@
+---
+title: "Repro_activity"
+author: "ting"
+date: "2025-06-09"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+ reading the CSV file, name as Df1
+ install package
+ 
+ 1. What is mean total number of steps taken per day?
+```{r read.cvs, echo=TRUE, include=TRUE, warning=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+    setwd("C:/Users/xiaot/datasciencecoursera/Reproduce analysis/repdata_data_activity")
+    Df1<- read.csv("activity.csv",header = TRUE )# Equivalent explicit version
+    head(Df1)
+
+# check the missng percent
+    missing_percent <- colMeans(is.na(Df1)) * 100
+    missing_percent
+    steps_per_day <- Df1 %>%
+  group_by(date) %>%
+  summarise(total_steps = sum(steps, na.rm = TRUE))
+
+# View the result
+    steps_per_day
+
+# Summary (min, median, mean, max)
+    summary(steps_per_day$total_steps)
+
+##Make a histogram of the total number of steps taken each day
+    ## Create histogram
+   Step_per_day_p<-  hist(
+  steps_per_day$total_steps, 
+  main = "Total Steps Taken per Day", 
+  xlab = "Total Steps", 
+  ylab = "Frequency (Number of Days)",
+  col = "lightblue",
+  breaks = 10  # Adjust number of bins
+    )
+  print(Step_per_day_p)  
+
+```
+2. What is the average daily activity pattern?
+
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r mean and median}
+## Step 1: Calculate Average Steps per Interval
+    avg_steps_per_interval <- Df1 %>%
+    group_by(interval) %>%
+    summarise(avg_steps = mean(steps, na.rm = TRUE))  # Handle missing values
+    ggplot(avg_steps_per_interval, aes(x = interval, y = avg_steps)) +
+  geom_line(color = "blue", linewidth = 1) +
+  labs(
+    title = "Average Daily Activity Pattern",
+    x = "5-Minute Interval",
+    y = "Average Steps Taken"
+  ) +
+  theme_minimal()
+    
+```
+3. Imputing missing values
+Calculate and report the total number of missing values in the data set 
+```{r}
+    # check the missng percent
+    missing_percent <- colMeans(is.na(Df1)) * 100
+    missing_percent
+    
+# Check if any days have all NAs (resulting in NaN means)
+    daily_means <- Df1 %>%
+    group_by(date) %>%
+    summarise(daily_mean = mean(steps, na.rm = TRUE))
+    print(daily_means)
+    daily_means %>% filter(is.nan(daily_mean))  # Problematic dates
+    
+## Add a global mean since some days dairy mean are missing
+    global_mean <- mean(Df1$steps, na.rm = TRUE)  # Fallback if daily mean is NaN
+
+    Df1_imputed <- Df1 %>%
+    left_join(daily_means, by = "date") %>%
+    mutate(
+    steps = coalesce(steps, daily_mean, global_mean)  # Replaces NA → daily mean → global mean
+  ) %>%
+  select(-daily_mean)  # Clean up
+##Verify All NAs Are Replaced
+    sum(is.na(Df1_imputed$steps))  # Should be 0
+## Calculate Total Daily Steps (After Imputation) 
+    daily_totals <- Df1_imputed %>%
+    group_by(date) %>%
+    summarise(total_steps = sum(steps))
+    summary(daily_totals)
+##Create Histogram    
+    ggplot(daily_totals, aes(x = total_steps)) +
+    geom_histogram(binwidth = 1000, fill = "skyblue", color = "black") +
+    labs(title = "Histogram of Total Steps per Day (After Imputation)",
+       x = "Total Steps per Day",
+       y = "Frequency") +
+    theme_minimal()
+## Calculate Mean and Median    
+    mean_median <- daily_totals %>%
+    summarise(
+    mean_steps = mean(total_steps),
+    median_steps = median(total_steps)
+  )
+
+print(mean_median)
+```
+
